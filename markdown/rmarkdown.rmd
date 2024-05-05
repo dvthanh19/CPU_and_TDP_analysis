@@ -1,0 +1,689 @@
+---
+title: "CPU  DATA  ANALYSIS  .rmd"
+author: "[MT2013 - CC09]  Group 9"
+date: "April 2023"
+output: 
+  html_document:
+    theme: yeti
+    toc: true
+    toc_float: true
+    number_sections: yes
+---
+
+```{r setup, include = FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+
+# Data Description
+## Preperation for code running
+<div align="justify">
+To start running code, first of all, we need to install some R packages, in which there are functions needed for our analysis and visualizing tasks.
+</div>
+```{r}
+# Un-comment if your Rstudio do not have available these below packages
+
+# install.packages('car')
+# install.packages('caret')
+# install.packages('dplyr')
+# install.packages('drc')
+# install.packages('ggplot2')
+# install.packages('lessR')
+# install.packages('randomForest')
+# install.packages('readr')
+# install.packages('nlme')
+# install.packages('nls.multstart')
+# install.packages('pacman')
+# install.packages('readxl')
+# install.packages('tidyverse')
+```
+
+<div align = "justify">
+We need to attach some libraries from installed packages to ensure that all functions below can run smoothly.
+</div>
+
+```{r}
+library(car)
+library(caret)
+library(dplyr)
+library(drc)
+library(ggplot2)
+library(lessR)
+library(randomForest)
+library(readr)
+library(nlme)
+library(nls.multstart)
+library(pacman)
+library(readxl)
+library(tidyverse)
+```
+
+
+## Importing data
+
+<div align = "justify">
+From <b><https://www.kaggle.com/datasets/iliassekkaf/computerparts?select=Intel_CPUs.csv></b>, we can download the raw version of the data about CPU and put it in our working space. 
+</div>
+
+\
+<div align = "justify">
+Before importing data, it is needed to set up some indexes for p_load configuration.
+</div>
+
+```{r}
+pacman::p_load(
+               rio,     # for dealing with basic import export
+               ggplot2, # for dealing with plot formats
+               zoo      # for dealing with year quarter formats
+)
+```
+
+<div align="justify">
+Then we set the working directory and import the raw data file from it. 
+</div>
+
+```{r}
+# Import data
+setwd("C:/ACA/PnS_Project/Data")
+data <- import("./cpu-raw.csv")       # rio::import
+```
+
+<div align="justify">
+We select the necessary columns being are useful for building models and prediction. All of the remaining columns will be removed since they contribute little on our analysis working.
+</div>
+
+
+\
+<div align="justify">
+<b>Need columns</b>: Vertical segment, Status, Launch date, Lithography, Recommended Customer price, Number of cores, Processor base frequency, Thermal design power and Temperature.
+</div>
+
+
+\
+<div align="justify">
+Changing variable names play an important role in our project, so that it is more convenient and easier to modify the code instead of dealing with the their long names. After that we export this file <i>cpu-short.csv</i> into the set working directory.
+</div>
+
+```{r}
+#Data attribute selection
+data <- data[, c("Vertical_Segment", "Status", "Launch_Date", "Lithography",
+                 "Recommended_Customer_Price", "nb_of_Cores",
+                 "Processor_Base_Frequency", "TDP","T")] 
+
+# Rename labels - easier to use
+names(data) <- c("market", "status", "ldate", "litho", "rprice", "ncore", "bfreq", "tdp", "temp")
+names(data)
+
+export(data, "cpu-short.csv")
+```
+
+
+## Cleaning data
+
+<div align="justify">
+After successfully importing data into working directory with some pre-processing steps, we continue to use <i>cpu-short.csv</i> file to clean.
+
+First, we import <i>cpu-short.csv</i> file created from the last section.
+</div>
+```{r}
+data <- import('cpu-short.csv')
+```
+
+<div align="justify">
+<b>Launched date</b> (ldate) column: we change it into the standard form with `as.yearqtr()` command.
+</div>
+
+```{r}
+data[,"ldate"] <- (
+  as.yearqtr(data[,"ldate"], format = "Q%q'%y")
+)
+```
+
+<div align="justify">
+<b>Recommended Customer Price</b> Some rprice values have ranges instead of sole numbers. We want to cut out unnecessary characters and only keep the largest price. After that, we eliminate $ symbol from the string, as well as cast the string to numeric type
+</div>
+```{r}
+data[,"rprice"] <- gsub("(^\\$(\\d)+.(\\d)+ - )", "", data[,"rprice"])
+data$rprice <- ifelse(data$rprice == "N/A", NA, data$rprice)
+
+data$rprice <- as.numeric(gsub('\\$|,', '', data$rprice))
+
+```
+
+<div align="justify">
+<b>Temperature</b>
+Our goal is to only match the numeric values, then, take the maximum among those. The
+approach to processing the complicated strings in temp is described as follows:
+<li>First, we attempt to match every decimal numbers possible, including the irrelevant number. The rest are replaced with commas ",". The result of this process will create a string of numbers separated by commas. By doing this, the numbers are well isolated for our purpose.</li>
+<li>Second, we split these numbers and form a vector of them. This can be done through strsplit function. Notice that our numbers are still in string format.</li>
+<li>Third, we cast all these strings to numeric and push them into a vector of values using unlist and lapply</li>
+<li>Fourth, we find the maximum among all these values. Invalid numbers will automatically become −∞, and will be further treated as NA.</li>
+<li>Notice that, we must loop through each row of the list to accomplish the above procedure.</li>
+</ul>
+</div>
+\
+
+```{r}
+data[,"temp"] <- (gsub("[^0-9.\\-]+", ",", data[,"temp"]))  # 
+for (i in seq_along(data[["temp"]])) {                    # For each elements in the same entry
+  temp_values <- strsplit(data[i, "temp"], ",")           # Split into a list of words
+  temp_values <- unlist(lapply(temp_values, as.numeric))  # Transform them into equivalent numerics
+  max_value <- max(temp_values, na.rm = TRUE)             # Find max
+  if (is.infinite(max_value)) {                           # Is it an invalid numeric?
+    max_value <- NA
+  }
+  data[i, "temp"] <- max_value                            # Store the maximum value
+}
+```
+
+\
+<div align = "justify">
+With the <b>others columns</b>, we only remove the their units and turn it from <i>string type</i> into <i>numeric type</i> that can be used for plotting or calculating purposes.
+</div>
+
+```{r}
+data[,"litho"] <- as.numeric(gsub(" nm", "", data[,"litho"]))
+data[,"tdp"] <- as.numeric(gsub(" W", "", data[,"tdp"]))
+
+data[,"bfreq"] <- as.numeric(gsub("( GHz)|( MHz)", "",data[,"bfreq"]))
+data<- data[!is.na(data$bfreq), ]   # Truncate NAs because subscripting with NA is not allowed.
+data$bfreq[data$bfreq > 10] <- data$bfreq[data$bfreq > 10]*0.001
+```
+
+<div align="justify">
+Finally, the data frame is totally clean and can be used for following steps. It will then be export to the current directory.
+</div>
+
+```{r}
+export(data, "cpu-clean.csv")
+```
+
+
+\
+<div align="justify">
+<b>In conclusion</b>, our data go through several processing steps: 
+<ul>
+<li>Raw data: the original data from website</li>
+<li>Short data: with only needed column and modified names for convenient using.</li>
+<li>Clean data: all of column values are change into numeric value instead of the raw string type. Some of them are brought to the standard forms.</li>
+</ul>
+</div>
+
+
+# DATA CLARIFICATION
+
+Loading packages and Importing data
+```{r}
+pacman::p_load(
+  rio,     # for imports & exports
+  ggplot2, # for plots
+  zoo,      # for year-quarter formats
+  car,     # for levent and shapiro
+  FSA,     # for Dunn test
+)
+
+#  IMPORT THE DATA
+data <- import("cpu-clean.csv")        # rio::import
+```
+
+Box-plotting between <b>Lithography</b> (litho) and its <b>Launched date</b> (ldate).
+```{r}
+data$litho <- as.factor(data$litho)
+ggplot(data, aes(x = ldate, y = litho)) + 
+  geom_boxplot(fill = "deepskyblue")
+```
+
+Scatter-plotting between <b>Lithography</b> (litho) and its <b>Launched date</b> (ldate).
+```{r}
+ggplot(data, aes(x = ldate, y = litho)) +
+geom_point(shape = 1,color = "blue") +
+labs(x = "Launch Date", y = "Lithography (nm)")
+```
+<div align="justify">
+The scatter plot of Lithography shows that it is getting smaller over time, and is categorized into specific time intervals. Lithography spans the distribution over an interval of time make it more powerful than Launch date. In our models, we always use Lithography instead of Launch date.
+</div>
+
+
+Box-plotting of Thermal design power in 4 markets
+```{r}
+ggplot(data, aes(x = market,y = tdp)) +
+geom_boxplot(fill = "deepskyblue") +
+labs(x = "Market", y = "Thermal deisgn power (W)")
+
+summary(data$tdp)
+```
+
+
+Histogram of Thermal Design Power
+```{r}
+ggplot(data, aes(x = tdp)) +
+  geom_histogram(binwidth = 5, fill = "deepskyblue")
+
+summary(data$tdp)
+```
+
+```{r}
+plot_data <- data
+plot_data$ncore <- as.factor(plot_data$ncore)
+
+```
+
+```{r}
+ggplot(plot_data, aes(x = ncore, y = tdp)) + geom_boxplot(fill = "deepskyblue")
+```
+
+```{r}
+# Base frequqency is a bit random, but the trend of linearity is still evident
+ggplot(plot_data, aes(x = bfreq, y = tdp)) + geom_point(color = "deepskyblue")
+```
+
+
+```{r}
+plot_data$litho <- as.factor(plot_data$litho)
+
+# Lithography as tdp is less convincing; however, we see that recent lithography techniques tend to have stable base frequency
+ggplot(plot_data, aes(x = litho, y = tdp)) + geom_boxplot(fill = "deepskyblue")
+
+# Different trends
+ggplot(plot_data, aes(x = temp, y = tdp)) +
+  geom_point(color = "deepskyblue", ) +
+  geom_abline(mapping = aes(intercept= -50, slope = 1.2), color = "darkblue")
+```
+
+
+
+```{r}
+data$type <- ifelse(data$market == 'Server' | data$market == 'Desktop', "Computers", "Devices")
+data$type <- as.factor(data$type)
+
+ggplot(data, aes(x = type, y = tdp)) + geom_boxplot(fill = "deepskyblue")
+
+ggplot(data, aes(x = temp, y = tdp)) + geom_point(color = "deepskyblue", ) + facet_wrap(~data$type)
+
+```
+<div align="justify">
+We see that the CPUs produced for each market are different, but there are clear distinction between <b>Desktop</b> and <b>Embedded</b>.
+</div>
+
+
+
+# DATA ANALYSIS
+ 
+## Data preparation
+```{r}
+pacman::p_load(
+  rio,            # for imports & exports
+  ggplot2,        # for plots
+  zoo             # for year-quarter formats
+)
+
+data <- import("cpu-clean.csv") # rio::impor
+```
+
+<div align="justify">
+Refer to <b>[Figure 4]</b> and our statement previously, the occurrences of values ≥ 150 is rare, we decided to cut them out from our data set. At the same time, we also remove the NAs rows from the data set, note that only the NAs associated with specific columns are removed, the reason not to remove all is described in <b>Section 3.3</b>.
+</div>
+
+```{r}
+data <- data[data$tdp < 150, ]
+data <- data[!is.na(data$tdp), ]
+data <- data[!is.na(data$bfreq), ]
+data <- data[!is.na(data$litho), ]
+data <- data[!is.na(data$ncore), ]
+data <- data[!is.na(data$temp), ]
+```
+
+
+## Splitting data into train set and validated set
+<div align="justify">
+Before building models for prediction, we must separate data into 2 data set: <i>train set</i> and <i>validated set (test set)</i>. <b>80% data is used for train set, while the remaining 20% data is used for test set.</b>
+</div>
+
+
+```{r}
+# Set default seed for random
+set.seed(123)
+
+#Use 80% of data frame as training set and 20% as test set
+train_indices <- sample(1:nrow(data), nrow(data) * 0.8)
+train <- data[train_indices, ]
+test <- data[-train_indices, ]
+```
+
+## The relationships between TDP and other factors
+
+### Lithography as a CPU eras
+<div align="justify">
+In this small section, we will demonstrate why <b>Lithography as a better representative than Launch date</b>. To do that, we start by looking at the confidence interval and the visualizations of Lithography over the years.
+</div>
+
+```{r}
+data$litho <- as.factor(data$litho)
+
+retval <- data.frame(NA, NA, NA, NA)
+names(retval) <- c("5% quantile","95% quantile", "STD Mean", "Confidence Interval")
+
+for (lit in levels(data$litho))
+{
+  quants <- quantile(
+    data[data$litho == lit, ]$ldate, 
+    na.rm = T, 
+    probs = c(0.05,0.95)
+  )
+  
+  dates <- data[data$litho == lit, ]$ldate
+
+  new_row <- data.frame(quants[1], quants[2], mean(sd(dates, na.rm=TRUE),
+  na.rm=TRUE),quants[2]-quants[1])
+  
+  names(new_row)<-c("5% quantile","95% quantile", "STD Mean", "Confidence Interval")
+  
+  retval <- rbind(retval, new_row)
+  rm(dates)
+}
+
+rownames(retval) <- c("NULL", levels(data$litho))
+retval <- retval[-1,]
+
+print(retval)
+```
+
+```{r}
+ggplot(data, aes(x = ldate, y = litho)) + geom_boxplot(fill = "deepskyblue")
+
+```
+
+<div align="justify">
+Looking at the <b>Mean of Standard Deviation</b (STD Mean), these means are pretty stable, and the Confidence Interval column tells us that most of the era of CPU design spans for about two and a half years, and these era are approximately mutually exclusive. 
+</div>
+
+
+### Thermal Design Power with respect to Lithography
+
+<div align="justify">
+One more thing we want to emphasize is the <b>stability of TDP in recent eras</b>, and the fact that it is converging. 
+<br>We will do the ANOVA to test and see if there are a significant difference in
+the tdp between the lithography era.
+We will have the null hypothesis: 
+<br>H0: the mean of the tdp in each type of lithography is the same. 
+<br>H1: there exist a pair of lithography type so that their mean is difference.
+<br>From the Data clarification we can see that there are particularly few CPU with lithography of 28 and 250, so we will remove them as well as all the row that has NA value
+</div>
+
+
+```{r}
+ # remove data with few count group ldate and remove NA
+data <- data[data$litho !=28, ]
+data <- data[data$litho !=250, ]
+
+data <- data[!is.na(data$tdp), ]
+data <- data[!is.na(data$litho), ]
+```
+<div align="justify">
+We will creat a <b>ANOVA model</b>
+</div>
+```{r}
+litho_anova_model <- aov(tdp ~ litho, data = data)
+summary(litho_anova_model)
+```
+
+
+<div align="justify">
+We can see that as the p-value < 0.05, we can reject the null hypothesis H0 and accept the alternative hypothesis H1 that there exist a pair of lithography type so that their TDP mean is difference.
+
+To satisfy the requirements of One-way ANOVA, we should check its assumptions on Normality
+and Homoscedasticity (homogeneous variance)
+</div>
+
+```{r}
+qqPlot(residuals(litho_anova_model))
+shapiro.test(residuals(litho_anova_model))
+leveneTest(tdp ~ litho, data = data)
+```
+
+<div align = "justify">
+We can see that the normality and variance test both fail, however the ANOVA test are also resilient against the violation of the two assumptions. But to make sure we will also be including the Kruskal - Wallis test as a non parametric alternative to the ANOVA test.
+</div>
+
+<div align = "justify">
+Finally we will analyse the result with a post hoc test to see which mean are different from each other. For this, we will use the TUKEY HSD test for ANOVA and Dunn test for Kruskal Wallis
+</div>
+
+```{r}
+Tukey<-TukeyHSD(litho_anova_model)
+plot(Tukey,las = 2)
+dunnTest(tdp ~ litho, data = data,method = "bonferroni")
+```
+
+
+## Regression analysis
+### Multi-linear Regression model
+
+<div align="justify">
+Due to the relationship between <b>Thermal design power</b> (tdp) with other variables, expressed by scatter-plotting graphs <i>(in report)</i>, it can be seen that they may related to <b>Linear regression</b>.
+</div>
+
+\
+<div align="justify">
+To start with, we build a linear regression model using command `lm()`, and give the information about this model by `summary()`.
+</div>
+```{r}
+# Build the model
+model.lr <- lm(tdp ~ ncore + bfreq + temp , data = train)
+
+# Summary of the model
+summary(model.lr)
+```
+
+<div align = "justify">
+We can observe that all of the variables have the p-value less than 0.05, therefore; all predictors that we have chosen is involved in the building process.
+</div>
+...........
+
+```{r}
+# Plotting residuals' histogram
+ggplot(model.lr, aes(x = resid(model.lr))) + 
+  geom_histogram(binwidth = 2, fill = "deepskyblue")
+```
+<div <div align="justify">
+Base on the summary of this model, we can come up with a model for this relationship:
+</div>
+tdp = 88.36451 + 5.3557 × ncore − 1.06298 × temp + 18.44835 × bfreq 
+
+
+<div <div align="justify">
+We can check assumption: Residual Errors have Constant Variance by using the Scale-Location plot.
+</div>
+
+```{r}
+plot(model.lr, which = 3)
+```
+
+<div align="justify">
+In the above plot, we can see that the residual points are equally spread out in a weird pattern, or in other words the residuals scatter is not following any formal distribution and is random. Thus, this assumption is met
+</div>
+
+
+<div align="justify">
+To test if the residuals is normally distributed, we plot the Q-Q plot using the command `plot()`.
+</div>
+
+
+```{r}
+plot(model.lr, which = 2)
+```
+
+<div <div align="justify">
+At the end of this model, we will do the scatter plotting for the predicted value compared with the real value in test set. The plotted red line in graph is <i>(d) y = x</i>. The more concentration on this line the more correct the model does.
+</div>
+\
+```{r}
+# Create data frame for actual tdp value and predicted tdp value
+comtab.lr <- test['tdp']
+comtab.lr['tdp_predicted'] <- as.data.frame(predict(model.lr, newdata = test), row.names = NULL)
+
+# Plotting
+# The majority of points lie near the line, so it is fine.
+ggplot(comtab.lr, aes(x = tdp, y = tdp_predicted)) + 
+  geom_point(shape=1, color="blue") + 
+  geom_abline(mapping=aes(intercept= 0, slope=1), color="darkblue") + 
+  labs(x = "TDP", y = "TDP Predicted")
+```
+
+### Random forest regression model
+<div align="justify">
+In this section, we will introduce Random Forest regression model. In fact, random forest models are often used for predicting system performance metrics such as CPU usage, response time, and throughput. The algorithm can handle both continuous and categorical data, making it a suitable choice for modeling CPU attribute data that may contain a mix of numerical and categorical variables.
+
+First, we build the <b>Random Forest Regression model</b> with `randomForest()`.
+</div>
+
+
+```{r}
+# Build the model
+model.rfr <- randomForest(formula = tdp ~ bfreq + ncore + temp, data = train, ntree = 500)
+
+# Print the model
+print(model.rfr)
+```
+<div align="justify">
+Another method to test the fitness of this model is checking the <b>Mean Absolute Error</b> (MAE) of this model. The lower the MAE, the better this model validates our hypothesis. To check MAE, using the following commands.
+</div>
+
+
+```{r}
+# Create data frame for real tdp value and predicted tdp value
+comtab.rfr <- test['tdp']
+comtab.rfr['tdp_predicted'] <- as.data.frame(predict(model.rfr, newdata = test), row.names = NULL)
+
+# Evaluate model performance
+accuracy <- sum(1-abs(comtab.rfr$tdp_predicted - comtab.rfr$tdp) / comtab.rfr$tdp) / nrow(comtab.rfr)
+MAE <- sum(abs(comtab.rfr$tdp_predicted - comtab.rfr$tdp)) / nrow(comtab.rfr)
+
+print(paste("Accuracy:", accuracy))
+print(paste("MAE:", MAE))
+```
+<div align="justify">
+Similarly with the R-squared validation, to compute the R-squared value, we use the following commands
+</div>
+
+```{r}
+# Calculate R-squared on testing data
+r2_test <- cor(comtab.rfr$tdp, comtab.rfr$tdp_predicted)^2
+print(r2_test)
+```
+<div align="justify">
+Because the assumption of this Random Forest model requires that the residual must follow normal distribution, we will use Q-Q plot to test if the residuals is normally distributed:
+</div>
+
+```{r}
+# Calculate the residuals by subtracting the actual values from the predicted values
+residuals <- comtab.rfr$tdp - comtab.rfr$tdp_predicted
+
+# Create a normal probability plot of the residuals
+qqnorm(residuals)
+qqline(residuals)
+```
+
+<div align="justify">
+In the Q-Q plot, it can be seen that those points are not fully lying near the line. We can conclude that this model may not be normally accurate.
+</div>
+
+
+
+<div align="justify">
+At the end of this model, we will do the scatter plotting for the predicted value compared with the real value in test set. The plotted red line in graph is (d) y = x. The more concentration on this line the more correct the model does.
+</div>
+
+```{r}
+# Plotting the predicted - actual
+ggplot(comtab.rfr, aes(x = tdp, y = tdp_predicted)) + 
+  geom_point(shape=1, color="blue") +
+  geom_abline(mapping=aes(intercept= 0, slope=1),color="darkblue") + 
+  labs(x = "TDP", y = "TDP Predicted")
+
+```
+
+<div align = "justify">
+<b>In conclusion</b>, compared to Linear regression model, the current model - Random forest give us the more optimistic results which are proven in the above figures such as error, accuracy and
+R2 value. As a result, we conclude this model is fitter to our data and get the quite high results, not 100% accuracy. Perhaps, more data should be obtained or some indexes such as number of tree be modified to reach the higher accuracy.
+</div>
+
+
+
+
+
+## Classification problem
+### Logistic Regression Model
+
+<div align = "justify">
+Logistic Regression is a type of statistical analysis that is used to model and predict the probability of a binary outcome based on one or more predictor variables. It is a type of supervised learning algorithm that is commonly used in machine learning and data analysis.
+</div>
+\
+<div align = "justify">
+Now, we will label each with corresponding type 1 or 0; 1 for market Desktop or Server and 0 for the rest:
+</div>
+```{r}
+# Add Type column
+# Server or Desktop will be in type 1, otherwise type 0
+train$type <- ifelse(train$market == 'Server' | train$market == 'Desktop', 1, 0)
+test$type <- ifelse(test$market == 'Server' | test$market == 'Desktop', 1, 0)
+```
+
+<div align = "justify">
+Then, we will build the logistic model for train set and make prediction on test set.
+</div>
+
+
+```{r}
+# Model
+model.l <- glm(type ~ tdp, data = train, family = 'binomial')
+
+# Make predictions on the test data
+predicted_probs <- predict(model.l, newdata = test, type = "response")
+predicted_classes <- ifelse(predicted_probs > 0.5, 1, 0)
+```
+<div align = "justify">
+Now, when evaluating the performance of  a logistic regression model, we use confusion matrix. The <b>confusion matrix</b> provides a summary of the number of correct and incorrect predictions made by the model, and is constructed by comparing the predicted values of the model with the actual values of the dependent variables.
+</div>
+
+<div align="justify">
+To do that, we firstly convert the predicted classes and actual classes to factors with the same levels and labels. In the next stage, we continue to create a confusion matrix with command `confusionMatrix()`.
+</div>
+
+```{r}
+# Evaluate model performance
+predicted_classes_factor <- factor(predicted_classes, levels = c(0, 1), labels = c("Negative", "Positive"))
+actual_classes_factor <- factor(test$type, levels = c(0, 1), labels = c("Negative", "Positive"))
+
+# Create a confusion matrix
+conf_matrix <- confusionMatrix(predicted_classes_factor, actual_classes_factor)
+```
+<div align="justify">
+Then, we express it out with these below commands
+</div>
+
+```{r}
+# Print the confusion matrix
+print(conf_matrix)
+
+# Print performance metrics
+print(paste("Accuracy:", conf_matrix$overall['Accuracy']))
+print(paste("Precision:", conf_matrix$byClass['Pos Pred Value']))
+print(paste("Recall:", conf_matrix$byClass['Sensitivity']))
+print(paste("F1 score:", conf_matrix$byClass['F1']))
+```
+
+<div align="justify">
+To use a confusion matrix to evaluate the performance of a logistic regression model, the first step is to use the model to make predictions on a test data set that was not used to train the model. Then, the predicted values of the model are compared to the actual values of the dependent variable, and a confusion matrix is constructed.
+</div>
+
+<div align="justify">
+With an accuracy of 0.8831, the model is demonstrating an impressive ability to correctly predict the outcome in 88.31% of the cases. Additionally, the precision of the model is 0.8493, indicating that out of all the cases predicted as positive, approximately 84.93% of them were actually positive. Moreover, the recall of the model is 0.8986, which means that out of all the actual positive cases, the model correctly identified 89.86% of them as positive. Finally, the F1 score of the model is 0.8732, which is a harmonic mean of precision and recall.
+</div>
+
+\
+\
+\
+<div align="justify">
+<b>Overall</b>, these impressive performance metrics suggest that the logistic regression model concludes the differences between market Desktop or Server and the rest of market. Therefore, it can be inferred that the market is taking a good account of thermal design power, as the model’s high accuracy, precision, recall, and F1 score indicate its ability to make reliable and accurate predictions
+</div>

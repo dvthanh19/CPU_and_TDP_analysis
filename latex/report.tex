@@ -1,0 +1,254 @@
+% \documentclass{hcmut-report}
+% \usepackage{codespace}
+% \usepackage{subfigure}
+% \usepackage{subcaption}
+
+% % Sub-preambles
+% % https://github.com/MartinScharrer/standalone
+
+% % Encodings
+% \usepackage{gensymb,textcomp}
+
+% % Better tables
+% % Wide tables go to https://tex.stackexchange.com/q/332902
+% \usepackage{array,multicol,multirow,siunitx,tabularx}
+
+% % Better enum
+% \usepackage{enumitem}
+
+% % Graphics
+% \usepackage{caption,float}
+
+% % Allow setting >max< width of figure
+% % 'export' allows adjustbox keys in \includegraphics
+% % For demonstration purposes, remove in production
+% \usepackage[export]{adjustbox}
+
+% % For demonstration purposes, remove in production
+% \usepackage{mwe}
+
+% \usepackage{lastpage}
+% \usepackage{amsmath}
+% \usepackage{amsfonts}
+% \usepackage{amssymb}
+% \usepackage{graphicx}% muốn chèn hình sử dụng gói này
+% %\usepackage[dvips]{color}
+% % \usepackage[top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm] {geometry} 
+
+% \usepackage{hyperref}
+%     \hypersetup{colorlinks=true, linkcolor=black}
+% \usepackage{pgfplots}
+% \usepackage{tkz-euclide}
+% \usepackage{fancyhdr}
+% \pgfplotsset{compat=newest}
+% \usepackage{xfrac}
+
+
+% \usepackage{listings}
+% \usepackage{color}
+
+
+% \usepackage{caption}
+% \usepackage[labelfont = {bf,it}]{caption}
+% \captionsetup[table]{name = Fig.}
+
+
+% \usepackage{minted}
+% \usemintedstyle{vs}
+% \usepackage{xcolor} % to access the named colour LightGray
+% \definecolor{LightGray}{gray}{0.95}
+
+% % % Configurations
+% \newcounter{memberrowno}
+% \setcounter{memberrowno}{0}
+% \reportlayout%
+
+% % Override (some) default values
+% \ocoursename{PROBABILITY AND STATISTICS (MT2013)}
+% \oreporttype{Probability and Statistics Assignment - Semester 222}
+% \title{Who knows}
+% \oadvisor{Dr. Nguyen Tien Dung}
+
+% % Custom commands
+% \newcommand*\mean[1]{\bar{#1}}
+
+% \begin{document}
+% \coverpage%
+% \lstset{frame=single,
+%   language=R,
+%   aboveskip=5mm,
+%   belowskip=5mm,
+%   showstringspaces=false,
+%   columns=flexible,
+%   basicstyle={\small\ttfamily},
+%   numbers=left,
+%   numberstyle=\tiny,
+%   keywordstyle=\color{blue},
+%   commentstyle=\color{teal},
+%   stringstyle=\color{red},
+%   breaklines=true,
+%   breakatwhitespace=true,
+%   tabsize=3}
+
+% \section*{Member list \& Workload}
+% \begin{center}
+%   \begin{tabular}{>{\stepcounter{memberrowno}\thememberrowno}llcc}
+%     \toprule
+%     \multicolumn{1}{c}{\textbf{No.}} & \textbf{Full name} & \textbf{Student ID} & \textbf{Percentage of work} \\
+%     \midrule
+%                                      & h                  & xxxxxxx             & 100\%                       \\
+%                                      & h                  & xxxxxxx             & 100\%                       \\
+%     \bottomrule
+%   \end{tabular}
+% \end{center}
+
+% \newpage
+% \tableofcontents
+% \newpage
+% \include{chapters/sections/abstract.tex}
+% \include{chapters/sections/background.tex}
+% \include{chapters/sections/data_descrip.tex}
+% \include{chapters/sections/data_clarify.tex}
+% \include{chapters/sections/data_analysis.tex}
+% \include{chapters/sections/conclusion.tex}
+% \include{chapters/sections/appendix.tex}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+% \newpage
+% \bibliographystyle{plain}
+% \bibliography{refs}
+% \nocite{*}
+
+% \end{document}
+
+
+
+\documentclass[11pt]{hcmut-report}
+\usepackage{codespace}
+\usepackage{amssymb}
+\usepackage{caption}
+\usepackage{subcaption}
+
+% Sub-preambles
+% https://github.com/MartinScharrer/standalone
+% use to create href
+\usepackage{hyperref}
+\usepackage{minted} % for minted code
+% Encodings
+\usepackage{gensymb,textcomp}
+
+% Better tables
+% Wide tables go to https://tex.stackexchange.com/q/332902
+\usepackage{array,multicol,multirow,siunitx,tabularx}
+\usepackage{blindtext}
+% Better enum
+\usepackage{enumitem}
+
+% Graphics
+\usepackage{caption,float}
+\usepackage{subcaption}
+
+\DeclareCaptionFormat{custom}
+{%
+    \textbf{#1#2}\textit{\small #3}
+}
+\captionsetup{format=custom}
+
+% Allow setting >max< width of figure
+% 'export' allows adjustbox keys in \includegraphics
+% For demonstration purposes, remove in production
+\usepackage[export]{adjustbox}
+
+% For demonstration purposes, remove in production
+\usepackage{mwe}
+
+% % Configurations
+\newcounter{memberrowno}
+\setcounter{memberrowno}{0}
+\reportlayout%
+
+% Override (some) default values
+\ocoursename{PROBABILITY AND STATISTICS (MT2013)}
+\oreporttype{Probability and Statistics Assignment - Semester 222}
+\title{The impact of CPU's characteristics on its Thermal Design Power}
+\oadvisor{Dr. Nguyen Tien Dung}
+
+% Custom commands
+\newcommand*\mean[1]{\bar{#1}}
+
+% Configurations
+% \ocoursename{Course name h}
+% \oreporttype{Report type h}
+% \title{Report title h}
+% \oadvisor{Advisor h}
+% \newcounter{memberrowno}
+% \setcounter{memberrowno}{0}
+
+% % Custom commands
+% \newcommand*\mean[1]{\bar{#1}}
+
+\begin{document}
+\coverpage%
+
+% ============ Member list and Workload ============ (TURNED OFF)
+\section*{Member list \& Workload}
+\begin{center}
+  \begin{tabular}{>{\stepcounter{memberrowno}\thememberrowno}llcp{5cm}c}
+    \toprule
+    \multicolumn{1}{c}{\textbf{No.}} & \textbf{Full name} & \textbf{Student ID} & \textbf{Task} & \textbf{Contribution} \\
+    \midrule
+                                     & Le Hoang Duy                  & 2152040  & Search for topics, theoratical background, code R             & 100\%                       \\
+                                     & Le Tran Nguyen Khoa                  & 2152674 & Data preprocessing cleaning, data clarification, ANOVA and writing report             & 100\%                       \\
+                                     & Dinh Viet Thanh                  & 2152966 & R code, testing regression model and R markdown code             & 100\%                       \\
+                                      & Dang Bao Tin                  & 2152313 & Managing progress, collecting tasks, R code and researching special models for regression analysis             & 100\%                       \\
+                                       & Le Viet Tung                  & 2153083 & Data preprocessing cleaning, data clarification, ANOVA and checking report             & 100\%                       \\
+    \bottomrule
+  \end{tabular}
+\end{center}
+
+\newpage
+\tableofcontents
+\newpage
+
+% ============ Viet Tung reply ============ (TURNED OFF)
+% \input{chapters/rep/preface}
+% \input{chapters/rep/data anylis/Data analysis}
+% \input{chapters/rep/Conclusion}
+
+% ============ Template ============ (TURNED OFF)
+%\include{chapters/example/bettertables.tex}
+%\include{chapters/example/betterenum.tex}
+%\include{chapters/example/codespace.tex}
+%\include{chapters/example/figwidth.tex}
+\nocite{*}
+% ============ MAIN ============
+% We will include official *.tex files here.
+% First, create "chapters" folder and then in that folder, create "sections" folder and put all the tex files in sections folder in order to compile the file
+% Then, in the main folder, also create "graphics" folder and put all the images there in order to match the correct path in the tex files in order to insert it in the pdf correspondingly.
+\include{chapters/sections/abstract.tex}
+\include{chapters/sections/background.tex}
+\include{chapters/sections/data_descrip.tex}
+\include{chapters/sections/data_clarify.tex}
+\include{chapters/sections/data_analysis.tex}
+\include{chapters/sections/conclusion.tex}
+
+\bibliographystyle{plainnat}
+\bibliography{refs.bib}
+%\addbibresource{refs.bib}
+\nocite{*}
+\end{document}
